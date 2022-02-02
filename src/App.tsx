@@ -1,28 +1,64 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 
-const text = `hola esto es una prueba
-vamos probando a ver que pasa
+const text = `hola
+esto es una prueba
+esto es una prueba
 `;
 
 type KeyType = {
   isCurrent?: boolean;
   isCorrect?: boolean;
-  isPressed?: boolean;
+  hasCorrection?: boolean;
 };
 
 const Container = styled.div`
-  padding: 10rem 0;
+  position: relative;
+`;
+
+const CorrectText = styled.span`
+  color: #00ff00;
+`;
+
+const TextContainer = styled.div`
+  padding: 0 10px;
+  margin-top: 50px;
+  text-align: left;
+  width: fit-content;
+  position: relative;
+
+  @media (min-width: 768px) {
+    padding: 50px;
+    margin: 20px auto;
+  }
+`;
+
+const PunctuationContainer = styled.div`
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  font-size: 1.5em;
+  font-weight: bold;
+
+  @media (min-width: 768px) {
+    top: 50px;
+    right: 100px;
+  }
+`;
+
+const ProgressContainer = styled.div`
+  padding: 2rem 0;
   text-align: center;
 `;
 
-const Key = styled.div<KeyType>`
-  background-color: ${({ isCurrent, isCorrect, isPressed }) => {
-    if (isCurrent && !isPressed) return "#fff";
-    if (isCurrent && isPressed && isCorrect) return "#00ff00";
-    if (isCurrent && isPressed && !isCorrect) return "#ff0000";
+const HiddenText = styled.h1``;
 
-    return "#909090";
+const Key = styled.div<KeyType>`
+  background-color: ${({ hasCorrection, isCurrent, isCorrect }) => {
+    if (isCorrect) return "#00ff00";
+    if (isCurrent) return "#fff";
+    if (!hasCorrection) return "#909090";
+    if (!isCorrect) return "#ff0000";
   }};
   border-radius: 3px;
   border: 1px solid #b4b4b4;
@@ -33,73 +69,89 @@ const Key = styled.div<KeyType>`
   font-size: 1.5em;
   font-weight: 700;
   line-height: 1;
-  padding: 0.8rem 1rem;
+  padding: 0.2rem 0.3rem;
   white-space: nowrap;
-  margin: 0 0.2rem 0.4rem 0;
+  margin: 0 5px 10px 0;
+
+  @media (min-width: 768px) {
+    padding: 0.8rem 1rem;
+    margin: 0 10px 20px 0;
+  }
 `;
 
 function App() {
+  const letters = text.split("");
+  const [responses] = useState<Array<boolean>>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isKeyPressed, setIsKeyPressed] = useState(false);
-  const [keyPressed, setKeyPressed] = useState<string | null>(null);
-  const paragrahps = text.match(/[^\n]+(?:\r?\n|$)/g) || "";
+  const [height, setHeight] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
 
   const getText = (letter: string) => {
     const isCarriageReturn = /\r|\n/.exec(letter);
-    if (isCarriageReturn) return "↵";
-    if (letter === " ") return "␣";
+    if (isCarriageReturn || letter === " ") return "\u00A0";
 
     return letter;
   };
+
+  const isCarriageReturn = (letter: string) => /\r|\n/.exec(letter);
 
   const isKeyPressedCorrect = (keyPressed: string | null, letter: string) => {
     const isCarriageReturn = /\r|\n/.exec(letter);
 
     return (
-      keyPressed !== null &&
-      (keyPressed === letter.normalize("NFD").replace(/[\u0300-\u036f]/g, "") ||
-        (isCarriageReturn && keyPressed === "Enter"))
+      keyPressed === letter.normalize("NFD").replace(/[\u0300-\u036f]/g, "") ||
+      (isCarriageReturn && keyPressed === " ")
     );
   };
 
-  const convertToKeys = (text: string) => {
-    return text.split("").map((letter, index) => {
-      const isCurrentLetter = index === currentIndex;
+  const convertToKeys = (letter: string, index: number) => {
+    const isCurrentLetter = index === currentIndex;
 
-      const isCorrect =
-        isCurrentLetter &&
-        isKeyPressed &&
-        isKeyPressedCorrect(keyPressed, letter);
+    const isCorrect = index < currentIndex ? responses[index] : false;
 
-      return (
+    return (
+      <>
         <Key
-          key={`${letter}-${index}`}
+          hasCorrection={index <= currentIndex}
+          key={index}
+          isCorrect={isCorrect}
           isCurrent={isCurrentLetter}
-          isPressed={isKeyPressed}
-          isCorrect={!!isCorrect}
         >
           {getText(letter)}
         </Key>
-      );
-    });
+        {isCarriageReturn(letter) && <br key={`line-${index}`}></br>}
+      </>
+    );
   };
 
-  const paragrah = convertToKeys(paragrahps[0]);
+  useEffect(() => {
+    window.scroll({
+      top: 0,
+      behavior: "smooth",
+    });
+
+    setHeight(ref.current?.children[0].clientHeight || 0);
+  }, []);
 
   useEffect(() => {
-    const onKeyDown = ({ key }: KeyboardEvent) => {
-      if (keyPressed) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === " ") e.preventDefault();
 
-      setIsKeyPressed(true);
-      setKeyPressed(key);
+      if (isCarriageReturn(letters[currentIndex])) {
+        window.scroll({
+          top: window.scrollY + height,
+          behavior: "smooth",
+        });
+      }
+
+      if (isKeyPressedCorrect(e.key, letters[currentIndex])) {
+        return responses.push(true);
+      }
+
+      return responses.push(false);
     };
 
     const onKeyUp = ({ key }: KeyboardEvent) => {
-      setIsKeyPressed(false);
-      setKeyPressed(null);
-
-      if (currentIndex >= paragrahps[0].length - 1) return;
-
       setCurrentIndex(currentIndex + 1);
     };
 
@@ -110,9 +162,25 @@ function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [currentIndex, keyPressed]);
+  }, [currentIndex, responses]);
 
-  return <Container>{paragrah}</Container>;
+  const correctAnswers = responses.filter((answer) => answer);
+
+  return (
+    <Container>
+      <PunctuationContainer>
+        <CorrectText>{correctAnswers.length}</CorrectText> / {letters.length}
+      </PunctuationContainer>
+      <TextContainer ref={ref}>
+        {letters.map((letter, index) => {
+          return convertToKeys(letter, index);
+        })}
+        {correctAnswers.length === letters.length && (
+          <HiddenText>Te quiero chuchi ❤️</HiddenText>
+        )}
+      </TextContainer>
+    </Container>
+  );
 }
 
 export default App;
