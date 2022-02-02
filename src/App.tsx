@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 
-const text = `hola
-esto es una prueba
-esto es una prueba
-`;
+const text = `pepe
+pecas
+pica
+papas
+con un pico
+con un pico
+pica papas
+pepe
+pecas`;
 
 type KeyType = {
   isCurrent?: boolean;
@@ -52,6 +57,9 @@ const ProgressContainer = styled.div`
 `;
 
 const HiddenText = styled.h1``;
+const Title = styled.h1`
+  text-align: center;
+`;
 
 const Key = styled.div<KeyType>`
   background-color: ${({ hasCorrection, isCurrent, isCorrect }) => {
@@ -144,7 +152,12 @@ function App() {
         });
       }
 
-      if (isKeyPressedCorrect(e.key, letters[currentIndex])) {
+      if (
+        isKeyPressedCorrect(
+          e.key.toLowerCase(),
+          letters[currentIndex].toLowerCase()
+        )
+      ) {
         return responses.push(true);
       }
 
@@ -172,11 +185,13 @@ function App() {
         <CorrectText>{correctAnswers.length}</CorrectText> / {letters.length}
       </PunctuationContainer>
       <TextContainer ref={ref}>
-        {letters.map((letter, index) => {
-          return convertToKeys(letter, index);
-        })}
-        {correctAnswers.length === letters.length && (
+        <Title>Descubre el mensaje oculto</Title>
+        {correctAnswers.length === letters.length ? (
           <HiddenText>Te quiero chuchi ❤️</HiddenText>
+        ) : (
+          letters.map((letter, index) => {
+            return convertToKeys(letter, index);
+          })
         )}
       </TextContainer>
     </Container>
